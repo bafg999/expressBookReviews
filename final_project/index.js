@@ -28,6 +28,60 @@ if (req.session.authorization) {
         return res.status(403).json({ message: "User not logged in" });
     }   
 });
+
+function getBooksAsync(callback) {
+    // Simulamos un retraso de red/DB
+    setTimeout(() => {
+        // Podríamos tener lógica de error aquí
+        const error = null; // Simulamos que no hay error
+        const data = {
+            books: books,
+            metadata: {
+                count: Object.keys(books).length,
+                generated_at: new Date().toISOString()
+            }
+        };
+        callback(error, data);
+    }, 150); // Retraso simulado de 150ms
+}
+
+// Función que simula una búsqueda asíncrona en base de datos
+function findBookByISBN(isbn) {
+    return new Promise((resolve, reject) => {
+        // Simulamos un pequeño retraso como si fuera una DB real
+        setTimeout(() => {
+            const book = books[isbn];
+            
+            if (!book) {
+                const error = new Error('Book not found');
+                error.status = 404;
+                error.details = {
+                    isbn,
+                    suggestion: "Check the ISBN or browse our collection"
+                };
+                return reject(error);
+            }
+            
+            resolve(book);
+        }, 100); // Retraso simulado de 100ms
+    });
+}
+
+// Función para validar el formato ISBN
+function validateISBN(isbn) {
+    return new Promise((resolve, reject) => {
+        if (!isbn || isbn.length < 10) {
+            const error = new Error('Invalid ISBN format');
+            error.status = 400;
+            error.details = {
+                expected_format: "ISBN-10 (10 characters) or ISBN-13 (13 characters)",
+                received: isbn
+            };
+            return reject(error);
+        }
+        resolve(isbn);
+    });
+}
  
 const PORT =5000;
 

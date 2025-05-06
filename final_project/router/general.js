@@ -28,52 +28,94 @@ public_users.post("/register", (req,res) => {
 // Get the book list available in the shop
 public_users.get('/',function (req, res) {
   //Write your code here
-    res.send(JSON.stringify(books,null,4));
+    getBooksAsync((err, result) => {
+        if (err) {
+            console.error("Error fetching books:", err);
+            return res.status(500).json({
+                error: "Internal Server Error",
+                message: "Could not retrieve book list",
+                details: err.message
+            });
+        }
+        
+        // Formateo avanzado de la respuesta
+        const response = {
+            status: "success",
+            data: {
+                books: result.books,
+                meta: result.metadata
+            },
+            links: {
+                self: req.originalUrl,
+                search: `${req.baseUrl}/search`
+            }
+        };
+        
+        // Configuración de headers para la respuesta
+        res.set({
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=3600' // Cache de 1 hora
+        });
+        
+        // Envío de respuesta con formato bonito para desarrollo
+        res.status(200).send(JSON.stringify(response, null, process.env.NODE_ENV === 'development' ? 4 : 0));
+    });
 });
+
 
 // Get book details based on ISBN
 public_users.get('/isbn/:isbn',function (req, res) {
   //Write your code here
   const isbn = req.params.isbn;
     
-  //Validación del ISBN
-  if (!isbn || isbn.length < 10) {
-      return res.status(400).json({
-          message: "Invalid ISBN format",
-          expected_format: "ISBN-10 (10 characters) or ISBN-13 (13 characters)",
-          received: isbn
-      });
-  }
-
-  //Buscar el libro.
-  const book = books[isbn];
-  
-  //el libro no existe
-  if (!book) {
-      return res.status(404).json({
-          message: "Book not found",
-          isbn: isbn,
-          suggestion: "Check the ISBN or browse our collection"
-      });
-  }
-
-  //Preparar respuesta con detalles del libro
-  const response = {
-      isbn: isbn,
-      title: book.title,
-      author: book.author,
-      publication_year: book.publication_year || "Unknown",
-      genre: book.genre || "Not specified",
-      reviews_summary: {
-          count: book.reviews ? Object.keys(book.reviews).length : 0,
-          average_rating: book.reviews ? 
-              (Object.values(book.reviews).reduce((sum, review) => sum + review.rating, 0) / Object.keys(book.reviews).length).toFixed(1) : 0
-      },
-      available_copies: book.copies || 1
-  };
-
-  //Enviar respuesta exitosa
-  return res.status(200).json(response);
+    validateISBN(isbn)
+        .then(() => findBookByISBN(isbn))
+        .then(book => {
+            // Preparar respuesta
+            const response = {
+                isbn: isbn,
+                title: book.title,
+                author: book.author,
+                publication_year: book.publication_year || "Unknown",
+                genre: book.genre || "Not specified",
+                reviews_summary: {
+                    count: book.reviews ? Object.keys(book.reviews).length : 0,
+                    average_rating: book.reviews ? 
+                        (Object.values(book.reviews).reduce((sum, review) => sum + review.rating, 0) / 
+                        Object.keys(book.reviews).length) : 0
+                },
+                available_copies: book.copies || 1
+            };
+            
+            if (response.reviews_summary.average_rating) {
+                response.reviews_summary.average_rating = 
+                    response.reviews_summary.average_rating.toFixed(1);
+            }
+            
+            //headers de respuesta
+            res.set({
+                'Content-Type': 'application/json',
+                'Cache-Control': 'public, max-age=3600' // Cache de 1 hora
+            });
+            
+            return res.status(200).json(response);
+        })
+        .catch(error => {
+            // Manejo centralizado de errores
+            console.error(`Error processing ISBN ${isbn}:`, error.message);
+            
+            const status = error.status || 500;
+            const response = {
+                error: error.message,
+                ...(error.details && { details: error.details })
+            };
+            
+            if (status === 500) {
+                response.message = "Internal server error";
+            }
+            
+            res.status(status).json(response);
+        });
  });
   
 // Get book details based on author
@@ -111,8 +153,7 @@ public_users.get('/review/:isbn',function (req, res) {
     //Validar que el libro exista
     if (!books[isbn]) {
         return res.status(404).json({ 
-            message: "Book not found",
-            suggestion: "Check the ISBN or try another book"
+            message: "Book not found"
         });
     }
 
