@@ -190,5 +190,57 @@ public_users.get('/review/:isbn',function (req, res) {
 
     return res.status(200).json(response);
 });
+//Agregar/Modificar reviews
+regd_users.put("/auth/review/:isbn", function (req, res) {
+    const isbn = req.params.isbn;
+    const { review, rating, username } = req.body; // username viene del body en esta versión
+
+    // Validaciones básicas
+    if (!username) {
+        return res.status(400).json({ message: "Username is required" });
+    }
+
+    if (!review || !rating) {
+        return res.status(400).json({ message: "Review and rating are required" });
+    }
+
+    if (isNaN(rating) || rating < 1 || rating > 5) {
+        return res.status(400).json({ message: "Rating must be between 1 and 5" });
+    }
+
+    // Verificar si el libro existe
+    if (!books[isbn]) {
+        return res.status(404).json({ message: "Book not found" });
+    }
+
+    // Inicializar reviews si no existen
+    if (!books[isbn].reviews) {
+        books[isbn].reviews = {};
+    }
+
+    // Determinar si es una actualización o nueva reseña
+    const isUpdate = books[isbn].reviews[username] ? true : false;
+
+    // Agregar/actualizar la reseña
+    books[isbn].reviews[username] = {
+        review,
+        rating: Number(rating),
+        date: new Date().toISOString()
+    };
+
+    // Respuesta exitosa
+    return res.status(isUpdate ? 200 : 201).json({
+        message: isUpdate ? "Review updated successfully" : "Review added successfully",
+        book: {
+            isbn,
+            title: books[isbn].title,
+            your_review: books[isbn].reviews[username]
+        },
+        stats: {
+            total_reviews: Object.keys(books[isbn].reviews).length,
+            average_rating: calculateAverage(books[isbn].reviews)
+        }
+    });
+});
 
 module.exports.general = public_users;
