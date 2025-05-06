@@ -191,7 +191,7 @@ public_users.get('/review/:isbn',function (req, res) {
     return res.status(200).json(response);
 });
 //Agregar/Modificar reviews
-regd_users.put("/auth/review/:isbn", function (req, res) {
+public_users.put("/auth/review/:isbn", function (req, res) {
     const isbn = req.params.isbn;
     const { review, rating, username } = req.body; // username viene del body en esta versión
 
@@ -239,6 +239,56 @@ regd_users.put("/auth/review/:isbn", function (req, res) {
         stats: {
             total_reviews: Object.keys(books[isbn].reviews).length,
             average_rating: calculateAverage(books[isbn].reviews)
+        }
+    });
+});
+
+//eliminar reseñas de usuario
+public_users.delete("/auth/review/:isbn", function (req, res) {
+    const isbn = req.params.isbn;
+    const { username } = req.body; // Se espera el username en el body
+
+    if (!username) {
+        return res.status(400).json({ 
+            success: false,
+            message: "Username is required" 
+        });
+    }
+
+    if (!books[isbn]) {
+        return res.status(404).json({ 
+            success: false,
+            message: "Book not found",
+            isbn: isbn
+        });
+    }
+
+    if (!books[isbn].reviews || Object.keys(books[isbn].reviews).length === 0) {
+        return res.status(404).json({ 
+            success: false,
+            message: "No reviews found for this book",
+            isbn: isbn
+        });
+    }
+
+    if (!books[isbn].reviews[username]) {
+        return res.status(404).json({ 
+            success: false,
+            message: "No review found for this user",
+            username: username,
+            isbn: isbn
+        });
+    }
+
+    delete books[isbn].reviews[username];
+
+    return res.status(200).json({
+        success: true,
+        message: "Review deleted successfully",
+        book: {
+            isbn: isbn,
+            title: books[isbn].title,
+            remaining_reviews: Object.keys(books[isbn].reviews).length
         }
     });
 });
