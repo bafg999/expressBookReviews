@@ -38,7 +38,6 @@ public_users.get('/',function (req, res) {
             });
         }
         
-        // Formateo avanzado de la respuesta
         const response = {
             status: "success",
             data: {
@@ -51,13 +50,11 @@ public_users.get('/',function (req, res) {
             }
         };
         
-        // Configuración de headers para la respuesta
         res.set({
             'Content-Type': 'application/json',
-            'Cache-Control': 'public, max-age=3600' // Cache de 1 hora
+            'Cache-Control': 'public, max-age=3600'
         });
-        
-        // Envío de respuesta con formato bonito para desarrollo
+
         res.status(200).send(JSON.stringify(response, null, process.env.NODE_ENV === 'development' ? 4 : 0));
     });
 });
