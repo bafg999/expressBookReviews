@@ -3,6 +3,7 @@ let books = require("./booksdb.js");
 let isValid = require("./auth_users.js").isValid;
 let users = require("./auth_users.js").users;
 const public_users = express.Router();
+import ("./auth_users.js");
 
 function getBooksAsync(callback) {
     // Simulamos un retraso de red/DB
@@ -72,6 +73,34 @@ function getAuthorSuggestions(searchedAuthor) {
             author.includes(searchedAuthor)
         );
 }
+
+//only registered users can login
+public_users.post("/login", (req, res) => {
+    //Write your code here
+    const username = req.body.username;
+    const password = req.body.password;
+
+    // Check if username or password is missing
+    if (!username || !password) {
+        return res.status(404).json({ message: "Error logging in" });
+    }
+
+    // Authenticate user
+    if (authenticatedUser(username, password)) {
+        // Generate JWT access token
+        let accessToken = jwt.sign({
+            data: password
+        }, 'access', { expiresIn: 60 * 60 });
+
+        // Store access token and username in session
+        req.session.authorization = {
+            accessToken, username
+        }
+        return res.status(200).send("User successfully logged in");
+    } else {
+        return res.status(208).json({ message: "Invalid Login. Check username and password" });
+    }
+});
 
 const SALT_ROUNDS = 10;
 const MIN_PASSWORD_LENGTH = 8;
