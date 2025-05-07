@@ -3,7 +3,7 @@ let books = require("./booksdb.js");
 let isValid = require("./auth_users.js").isValid;
 let users = require("./auth_users.js").users;
 const public_users = express.Router();
-import ("./auth_users.js");
+import("./auth_users.js");
 
 function getBooksAsync(callback) {
     setTimeout(() => {
@@ -24,7 +24,7 @@ function findBookByISBN(isbn) {
     return new Promise((resolve, reject) => {
         setTimeout(() => {
             const book = books[isbn];
-            
+
             if (!book) {
                 const error = new Error('Book not found');
                 error.status = 404;
@@ -34,7 +34,7 @@ function findBookByISBN(isbn) {
                 };
                 return reject(error);
             }
-            
+
             resolve(book);
         }, 100);
     });
@@ -58,59 +58,80 @@ function validateISBN(isbn) {
 
 function getAuthorSuggestions(searchedAuthor) {
     const authorSet = new Set();
-    
+
     for (const isbn in books) {
         if (books[isbn].author) {
             authorSet.add(books[isbn].author);
         }
     }
-    
+
     return Array.from(authorSet)
-        .filter(author => 
+        .filter(author =>
             author.includes(searchedAuthor)
         );
 }
 
 async function searchBooksByAuthor(authorName) {
     return new Promise((resolve) => {
-      // Simulamos procesamiento asíncrono
-      process.nextTick(() => {
-        const matchingBooks = [];
-        
-        for (const isbn in books) {
-          if (books[isbn].author.includes(authorName)) {
-            matchingBooks.push({
-              isbn,
-              title: books[isbn].title,
-              author: books[isbn].author,
-              publication_year: books[isbn].publication_year || 'Unknown',
-              review_count: books[isbn].reviews ? Object.keys(books[isbn].reviews).length : 0
-            });
-          }
-        }
-        
-        resolve(matchingBooks);
-      });
-    });
-  }
+        // Simulamos procesamiento asíncrono
+        process.nextTick(() => {
+            const matchingBooks = [];
 
-  async function getAuthorSuggestionsAsync(authorName) {
-    return new Promise((resolve) => {
-      process.nextTick(() => {
-        const authorSet = new Set();
-        for (const isbn in books) {
-          if (books[isbn].author) {
-            authorSet.add(books[isbn].author);
-          }
-        }
-        resolve(
-          Array.from(authorSet)
-            .filter(author => author.toLowerCase().includes(authorName.substring(0, 3).toLowerCase()))
-            .slice(0, 5)
-        );
-      });
+            for (const isbn in books) {
+                if (books[isbn].author.includes(authorName)) {
+                    matchingBooks.push({
+                        isbn,
+                        title: books[isbn].title,
+                        author: books[isbn].author,
+                        publication_year: books[isbn].publication_year || 'Unknown',
+                        review_count: books[isbn].reviews ? Object.keys(books[isbn].reviews).length : 0
+                    });
+                }
+            }
+
+            resolve(matchingBooks);
+        });
     });
-  }
+}
+
+async function getAuthorSuggestionsAsync(authorName) {
+    return new Promise((resolve) => {
+        process.nextTick(() => {
+            const authorSet = new Set();
+            for (const isbn in books) {
+                if (books[isbn].author) {
+                    authorSet.add(books[isbn].author);
+                }
+            }
+            resolve(
+                Array.from(authorSet)
+                    .filter(author => author.toLowerCase().includes(authorName.substring(0, 3).toLowerCase()))
+                    .slice(0, 5)
+            );
+        });
+    });
+}
+
+async function searchBooksByTitle(searchTerm) {
+    return new Promise((resolve) => {
+        // Simulamos procesamiento asíncrono
+        process.nextTick(() => {
+            const results = [];
+            
+            for (const isbn in books) {
+                const bookTitle = books[isbn].title.toLowerCase();
+                if (bookTitle.includes(searchTerm)) {
+                    results.push({
+                        isbn,
+                        results:books[isbn]
+                    });
+                }
+            }
+            
+            resolve(results);
+        });
+    });
+}
 
 //only registered users can login
 public_users.post("/login", (req, res) => {
@@ -146,7 +167,7 @@ const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,20}$/;
 public_users.post("/register", async (req, res) => {
     try {
         const { username, password } = req.body;
-        
+
         if (!username || !password) {
             return res.status(400).json({
                 status: 'error',
@@ -234,8 +255,8 @@ public_users.post("/register", async (req, res) => {
 });
 
 // Get the book list available in the shop
-public_users.get('/',function (req, res) {
-  //Write your code here
+public_users.get('/', function (req, res) {
+    //Write your code here
     getBooksAsync((err, result) => {
         if (err) {
             console.error("Error fetching books:", err);
@@ -245,7 +266,7 @@ public_users.get('/',function (req, res) {
                 details: err.message
             });
         }
-        
+
         const isbn = req.params.isbn;
 
         const response = {
@@ -260,7 +281,7 @@ public_users.get('/',function (req, res) {
                 search: `${req.baseUrl}/search`
             }
         };
-        
+
         res.set({
             'Content-Type': 'application/json',
             'Cache-Control': 'public, max-age=3600'
@@ -272,10 +293,10 @@ public_users.get('/',function (req, res) {
 
 
 // Get book details based on ISBN
-public_users.get('/isbn/:isbn',function (req, res) {
-  //Write your code here
-  const isbn = req.params.isbn;
-    
+public_users.get('/isbn/:isbn', function (req, res) {
+    //Write your code here
+    const isbn = req.params.isbn;
+
     validateISBN(isbn)
         .then(() => findBookByISBN(isbn))
         .then(book => {
@@ -288,114 +309,132 @@ public_users.get('/isbn/:isbn',function (req, res) {
                 genre: book.genre || "Not specified",
                 reviews_summary: {
                     count: book.reviews ? Object.keys(book.reviews).length : 0,
-                    average_rating: book.reviews ? 
-                        (Object.values(book.reviews).reduce((sum, review) => sum + review.rating, 0) / 
-                        Object.keys(book.reviews).length) : 0
+                    average_rating: book.reviews ?
+                        (Object.values(book.reviews).reduce((sum, review) => sum + review.rating, 0) /
+                            Object.keys(book.reviews).length) : 0
                 },
                 available_copies: book.copies || 1
             };
-            
+
             if (response.reviews_summary.average_rating) {
-                response.reviews_summary.average_rating = 
+                response.reviews_summary.average_rating =
                     response.reviews_summary.average_rating.toFixed(1);
             }
-            
+
             //respuesta
             res.set({
                 'Content-Type': 'application/json',
                 'Cache-Control': 'public, max-age=3600'
             });
-            
+
             return res.status(200).json(response);
         })
         .catch(error => {
-        
+
             console.error(`Error processing ISBN ${isbn}:`, error.message);
-            
+
             const status = error.status || 500;
             const response = {
                 error: error.message,
                 ...(error.details && { details: error.details })
             };
-            
+
             if (status === 500) {
                 response.message = "Internal server error";
             }
-            
+
             res.status(status).json(response);
         });
- });
-  
+});
+
 // Get book details based on author
-public_users.get('/author/:author',function (req, res) {
+public_users.get('/author/:author', function (req, res) {
     //Write your code here
     try {
         const authorName = decodeURIComponent(req.params.author);
-        
+
         //síncrona
         if (!authorName || authorName.trim().length < 2) {
-          return res.status(400).json({
-            error: "Invalid author name",
-            received: req.params.author
-          });
+            return res.status(400).json({
+                error: "Invalid author name",
+                received: req.params.author
+            });
         }
-    
+
         const matchingBooks = searchBooksByAuthor(authorName);
-    
+
         if (matchingBooks.length === 0) {
-          const suggestions = getAuthorSuggestionsAsync(authorName);
-          return res.status(404).json({
-            message: "No books found for the specified author",
-            searched_author: req.params.author,
-            suggestions: suggestions
-          });
+            const suggestions = getAuthorSuggestionsAsync(authorName);
+            return res.status(404).json({
+                message: "No books found for the specified author",
+                searched_author: req.params.author,
+                suggestions: suggestions
+            });
         }
-    
+
         //Respuesta exitosa
         res.status(200).json({
-          count: matchingBooks.length,
-          author_search: req.params.author,
-          books: matchingBooks
+            count: matchingBooks.length,
+            author_search: req.params.author,
+            books: matchingBooks
         });
-    
-      } catch (error) {
+
+    } catch (error) {
         console.error("Error in author search:", error);
         res.status(500).json({
-          error: "Internal server error",
-          message: "Could not complete search",
-          ...(process.env.NODE_ENV === 'development' && { details: error.message })
+            error: "Internal server error",
+            message: "Could not complete search",
+            ...(process.env.NODE_ENV === 'development' && { details: error.message })
         });
-      }
+    }
 
 });
 
 // Get all books based on title
-public_users.get('/title/:title',function (req, res) {
-  //Write your code here
-    const foundBooks = [];
-    
-    //libros título
-    for (const title in books) {
-        if (books[title]) {
-            foundBooks.push(books[title]);
+public_users.get('/title/:title', function (req, res) {
+    //Write your code here
+    try {
+        const searchTitle = req.params.title.toLowerCase();
+
+        // Validación
+        if (!searchTitle || searchTitle.trim().length < 2) {
+            return res.status(400).json({
+                error: "Invalid title",
+                message: "Title must be at least 2 characters long"
+            });
         }
-    }
-    
-    if (foundBooks.length > 0) {
-        return res.status(200).json(foundBooks);
-    }else {
-        return res.status(404).json({ message: "No books found with that title" });
+
+        // Búsqueda
+        const foundBooks = searchBooksByTitle(searchTitle);
+
+        if (foundBooks.length === 0) {
+            return res.status(404).json({
+                message: "No books found",
+            });
+        }
+
+        res.status(200).json({
+            count: foundBooks.length,
+            results: foundBooks
+        });
+
+    } catch (error) {
+        console.error("Search error:", error);
+        res.status(500).json({
+            error: "Internal server error",
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
 });
 
 //Get book review
-public_users.get('/review/:isbn',function (req, res) {
-  //Write your code here
-  const isbn = req.params.isbn;
-    
+public_users.get('/review/:isbn', function (req, res) {
+    //Write your code here
+    const isbn = req.params.isbn;
+
     //Validar existencia
     if (!books[isbn]) {
-        return res.status(404).json({ 
+        return res.status(404).json({
             message: "Book not found"
         });
     }
@@ -492,14 +531,14 @@ public_users.delete("/auth/review/:isbn", function (req, res) {
     const { username } = req.body;
 
     if (!username) {
-        return res.status(400).json({ 
+        return res.status(400).json({
             success: false,
-            message: "Username is required" 
+            message: "Username is required"
         });
     }
 
     if (!books[isbn]) {
-        return res.status(404).json({ 
+        return res.status(404).json({
             success: false,
             message: "Book not found",
             isbn: isbn
@@ -507,7 +546,7 @@ public_users.delete("/auth/review/:isbn", function (req, res) {
     }
 
     if (!books[isbn].reviews || Object.keys(books[isbn].reviews).length === 0) {
-        return res.status(404).json({ 
+        return res.status(404).json({
             success: false,
             message: "No reviews found for this book",
             isbn: isbn
@@ -515,7 +554,7 @@ public_users.delete("/auth/review/:isbn", function (req, res) {
     }
 
     if (!books[isbn].reviews[username]) {
-        return res.status(404).json({ 
+        return res.status(404).json({
             success: false,
             message: "No review found for this user",
             username: username,
