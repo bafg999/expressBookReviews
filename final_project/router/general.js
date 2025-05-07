@@ -6,10 +6,8 @@ const public_users = express.Router();
 import ("./auth_users.js");
 
 function getBooksAsync(callback) {
-    // Simulamos un retraso de red/DB
     setTimeout(() => {
-        // Podríamos tener lógica de error aquí
-        const error = null; // Simulamos que no hay error
+        const error = null;
         const data = {
             books: books,
             metadata: {
@@ -18,13 +16,12 @@ function getBooksAsync(callback) {
             }
         };
         callback(error, data);
-    }, 150); // Retraso simulado de 150ms
+    }, 150);
 }
 
-// Función que simula una búsqueda asíncrona en base de datos
+//búsqueda asíncrona
 function findBookByISBN(isbn) {
     return new Promise((resolve, reject) => {
-        // Simulamos un pequeño retraso como si fuera una DB real
         setTimeout(() => {
             const book = books[isbn];
             
@@ -39,7 +36,7 @@ function findBookByISBN(isbn) {
             }
             
             resolve(book);
-        }, 100); // Retraso simulado de 100ms
+        }, 100);
     });
 }
 
@@ -80,7 +77,6 @@ public_users.post("/login", (req, res) => {
     const username = req.body.username;
     const password = req.body.password;
 
-    // Check if username or password is missing
     if (!username || !password) {
         return res.status(404).json({ message: "Error logging in" });
     }
@@ -92,7 +88,6 @@ public_users.post("/login", (req, res) => {
             data: password
         }, 'access', { expiresIn: 60 * 60 });
 
-        // Store access token and username in session
         req.session.authorization = {
             accessToken, username
         }
@@ -159,7 +154,7 @@ public_users.post("/register", async (req, res) => {
         const newUser = {
             id: uuidv4(),
             username: username,
-            password: hashedPassword, // Almacenamos solo el hash
+            password: hashedPassword,
             registration_date: new Date().toISOString(),
             last_login: null,
             is_active: true
@@ -243,7 +238,7 @@ public_users.get('/isbn/:isbn',function (req, res) {
     validateISBN(isbn)
         .then(() => findBookByISBN(isbn))
         .then(book => {
-            // Preparar respuesta
+            //respuesta
             const response = {
                 isbn: isbn,
                 title: book.title,
@@ -264,16 +259,16 @@ public_users.get('/isbn/:isbn',function (req, res) {
                     response.reviews_summary.average_rating.toFixed(1);
             }
             
-            //headers de respuesta
+            //respuesta
             res.set({
                 'Content-Type': 'application/json',
-                'Cache-Control': 'public, max-age=3600' // Cache de 1 hora
+                'Cache-Control': 'public, max-age=3600'
             });
             
             return res.status(200).json(response);
         })
         .catch(error => {
-            // Manejo centralizado de errores
+        
             console.error(`Error processing ISBN ${isbn}:`, error.message);
             
             const status = error.status || 500;
@@ -329,7 +324,7 @@ public_users.get('/author/:author',function (req, res) {
         });
     }
 
-    // 5. Enviar respuesta exitosa
+    //respuesta exitosa
     res.status(200).json({
         count: matchingBooks.length,
         author_search: req.params.author,
@@ -351,7 +346,7 @@ public_users.get('/title/:title',function (req, res) {
   //Write your code here
     const foundBooks = [];
     
-    // Buscar libros que coincidan con el título
+    //libros título
     for (const title in books) {
         if (books[title]) {
             foundBooks.push(books[title]);
@@ -370,14 +365,14 @@ public_users.get('/review/:isbn',function (req, res) {
   //Write your code here
   const isbn = req.params.isbn;
     
-    //Validar que el libro exista
+    //Validar existencia
     if (!books[isbn]) {
         return res.status(404).json({ 
             message: "Book not found"
         });
     }
 
-    // Verificar si hay reseñas
+    //reseñas
     if (!books[isbn].reviews || Object.keys(books[isbn].reviews).length === 0) {
         return res.status(200).json({
             message: "No reviews yet for this book",
@@ -388,12 +383,12 @@ public_users.get('/review/:isbn',function (req, res) {
         });
     }
 
-    // Calcular rating promedio
+    // Calcular promedio
     const reviews = books[isbn].reviews;
     const ratings = Object.values(reviews).map(r => r.rating);
     const averageRating = (ratings.reduce((a, b) => a + b, 0) / ratings.length);
 
-    //Formatear respuesta
+    //Formatear
     const response = {
         isbn,
         title: books[isbn].title,
@@ -413,7 +408,7 @@ public_users.get('/review/:isbn',function (req, res) {
 //Agregar/Modificar reviews
 public_users.put("/auth/review/:isbn", function (req, res) {
     const isbn = req.params.isbn;
-    const { review, rating, username } = req.body; // username viene del body en esta versión
+    const { review, rating, username } = req.body;
 
     // Validaciones básicas
     if (!username) {
@@ -438,7 +433,7 @@ public_users.put("/auth/review/:isbn", function (req, res) {
         books[isbn].reviews = {};
     }
 
-    // Determinar si es una actualización o nueva reseña
+    //actualización o nueva reseña
     const isUpdate = books[isbn].reviews[username] ? true : false;
 
     // Agregar/actualizar la reseña
@@ -466,7 +461,7 @@ public_users.put("/auth/review/:isbn", function (req, res) {
 //eliminar reseñas de usuario
 public_users.delete("/auth/review/:isbn", function (req, res) {
     const isbn = req.params.isbn;
-    const { username } = req.body; // Se espera el username en el body
+    const { username } = req.body;
 
     if (!username) {
         return res.status(400).json({ 
