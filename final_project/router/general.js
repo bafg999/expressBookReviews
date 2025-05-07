@@ -71,6 +71,47 @@ function getAuthorSuggestions(searchedAuthor) {
         );
 }
 
+async function searchBooksByAuthor(authorName) {
+    return new Promise((resolve) => {
+      // Simulamos procesamiento asíncrono
+      process.nextTick(() => {
+        const matchingBooks = [];
+        
+        for (const isbn in books) {
+          if (books[isbn].author.includes(authorName)) {
+            matchingBooks.push({
+              isbn,
+              title: books[isbn].title,
+              author: books[isbn].author,
+              publication_year: books[isbn].publication_year || 'Unknown',
+              review_count: books[isbn].reviews ? Object.keys(books[isbn].reviews).length : 0
+            });
+          }
+        }
+        
+        resolve(matchingBooks);
+      });
+    });
+  }
+
+  async function getAuthorSuggestionsAsync(authorName) {
+    return new Promise((resolve) => {
+      process.nextTick(() => {
+        const authorSet = new Set();
+        for (const isbn in books) {
+          if (books[isbn].author) {
+            authorSet.add(books[isbn].author);
+          }
+        }
+        resolve(
+          Array.from(authorSet)
+            .filter(author => author.toLowerCase().includes(authorName.substring(0, 3).toLowerCase()))
+            .slice(0, 5)
+        );
+      });
+    });
+  }
+
 //only registered users can login
 public_users.post("/login", (req, res) => {
     //Write your code here
@@ -287,57 +328,44 @@ public_users.get('/isbn/:isbn',function (req, res) {
   
 // Get book details based on author
 public_users.get('/author/:author',function (req, res) {
-  //Write your code here
-  try {
-    const authorName = decodeURIComponent(req.params.author);
-    const matchingBooks = [];
-
-    //Validar autor
-    if (!authorName || authorName.trim().length < 2) {
-        return res.status(400).json({
+    //Write your code here
+    try {
+        const authorName = decodeURIComponent(req.params.author);
+        
+        //síncrona
+        if (!authorName || authorName.trim().length < 2) {
+          return res.status(400).json({
             error: "Invalid author name",
             received: req.params.author
-        });
-    }
-
-    //libros que coincidan
-    for (const isbn in books) {
-        const bookAuthor = books[isbn].author;
-        
-        if (bookAuthor.includes(authorName)) {
-            matchingBooks.push({
-                isbn,
-                title: books[isbn].title,
-                author: books[isbn].author,
-                publication_year: books[isbn].publication_year || 'Unknown',
-                review_count: books[isbn].reviews ? Object.keys(books[isbn].reviews).length : 0
-            });
+          });
         }
-    }
-
-    //resultados
-    if (matchingBooks.length === 0) {
-        return res.status(404).json({
+    
+        const matchingBooks = searchBooksByAuthor(authorName);
+    
+        if (matchingBooks.length === 0) {
+          const suggestions = getAuthorSuggestionsAsync(authorName);
+          return res.status(404).json({
             message: "No books found for the specified author",
             searched_author: req.params.author,
-            suggestions: getAuthorSuggestions(authorName)
+            suggestions: suggestions
+          });
+        }
+    
+        //Respuesta exitosa
+        res.status(200).json({
+          count: matchingBooks.length,
+          author_search: req.params.author,
+          books: matchingBooks
         });
-    }
-
-    //respuesta exitosa
-    res.status(200).json({
-        count: matchingBooks.length,
-        author_search: req.params.author,
-        books: matchingBooks
-    });
-
-} catch (error) {
-    console.error("Error in author search:", error);
-    res.status(500).json({
-        error: "Internal server error",
-        message: "Could not complete search"
-    });
-}
+    
+      } catch (error) {
+        console.error("Error in author search:", error);
+        res.status(500).json({
+          error: "Internal server error",
+          message: "Could not complete search",
+          ...(process.env.NODE_ENV === 'development' && { details: error.message })
+        });
+      }
 
 });
 
