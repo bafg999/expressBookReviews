@@ -58,6 +58,21 @@ function validateISBN(isbn) {
     });
 }
 
+function getAuthorSuggestions(searchedAuthor) {
+    const authorSet = new Set();
+    
+    for (const isbn in books) {
+        if (books[isbn].author) {
+            authorSet.add(books[isbn].author);
+        }
+    }
+    
+    return Array.from(authorSet)
+        .filter(author => 
+            author.includes(searchedAuthor)
+        ); // Retorna máximo 5 sugerencias
+}
+
 public_users.post("/register", (req,res) => {
   //Write your code here
   const username = req.body.username;
@@ -174,19 +189,67 @@ public_users.get('/isbn/:isbn',function (req, res) {
 // Get book details based on author
 public_users.get('/author/:author',function (req, res) {
   //Write your code here
-    const author = req.params.author;
-    res.send(books[author]);
+  try {
+    const authorName = decodeURIComponent(req.params.author);
+    const matchingBooks = [];
+
+    //Validar autor
+    if (!authorName || authorName.trim().length < 2) {
+        return res.status(400).json({
+            error: "Invalid author name",
+            received: req.params.author
+        });
+    }
+
+    //libros que coincidan
+    for (const isbn in books) {
+        const bookAuthor = books[isbn].author;
+        
+        if (bookAuthor.includes(authorName)) {
+            matchingBooks.push({
+                isbn,
+                title: books[isbn].title,
+                author: books[isbn].author,
+                publication_year: books[isbn].publication_year || 'Unknown',
+                review_count: books[isbn].reviews ? Object.keys(books[isbn].reviews).length : 0
+            });
+        }
+    }
+
+    //resultados
+    if (matchingBooks.length === 0) {
+        return res.status(404).json({
+            message: "No books found for the specified author",
+            searched_author: req.params.author,
+            suggestions: getAuthorSuggestions(authorName)
+        });
+    }
+
+    // 5. Enviar respuesta exitosa
+    res.status(200).json({
+        count: matchingBooks.length,
+        author_search: req.params.author,
+        books: matchingBooks
+    });
+
+} catch (error) {
+    console.error("Error in author search:", error);
+    res.status(500).json({
+        error: "Internal server error",
+        message: "Could not complete search"
+    });
+}
+
 });
 
 // Get all books based on title
 public_users.get('/title/:title',function (req, res) {
   //Write your code here
-  const title = req.params.books.title.toLowerCase();
     const foundBooks = [];
     
     // Buscar libros que coincidan con el título
     for (const title in books) {
-        if (books[title].toLowerCase().includes(title)) {
+        if (books[title]) {
             foundBooks.push(books[title]);
         }
     }
