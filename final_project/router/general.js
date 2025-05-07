@@ -70,27 +70,102 @@ function getAuthorSuggestions(searchedAuthor) {
     return Array.from(authorSet)
         .filter(author => 
             author.includes(searchedAuthor)
-        ); // Retorna máximo 5 sugerencias
+        );
 }
 
-public_users.post("/register", (req,res) => {
-  //Write your code here
-  const username = req.body.username;
-    const password = req.body.password;
+const SALT_ROUNDS = 10;
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 64;
+const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,20}$/;
 
-    // Check if both username and password are provided
-    if (username && password) {
-        // Check if the user does not already exist
-        if (!doesExist(username)) {
-            // Add the new user to the users array
-            users.push({"username": username, "password": password});
-            return res.status(200).json({message: "User successfully registered. Now you can login"});
-        } else {
-            return res.status(404).json({message: "User already exists!"});
+public_users.post("/register", async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        
+        if (!username || !password) {
+            return res.status(400).json({
+                status: 'error',
+                code: 'MISSING_CREDENTIALS',
+                message: 'Both username and password are required in the request body',
+                example_request: {
+                    "username": "your_username",
+                    "password": "your_secure_password"
+                }
+            });
         }
+
+        //username
+        if (!USERNAME_REGEX.test(username)) {
+            return res.status(400).json({
+                status: 'error',
+                code: 'INVALID_USERNAME',
+                message: 'Username must be 3-20 characters long and can only contain letters, numbers and underscores',
+                received: username
+            });
+        }
+
+        //contraseña
+        if (password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
+            return res.status(400).json({
+                status: 'error',
+                code: 'INVALID_PASSWORD_LENGTH',
+                message: `Password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters`,
+                password_length: password.length
+            });
+        }
+
+        //Verificar existencia
+        if (doesExist(username)) {
+            return res.status(409).json({
+                status: 'error',
+                code: 'USER_EXISTS',
+                message: 'Username already registered',
+                suggestion: 'Try a different username or reset your password if you own this account'
+            });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+
+        //usuario
+        const newUser = {
+            id: uuidv4(),
+            username: username,
+            password: hashedPassword, // Almacenamos solo el hash
+            registration_date: new Date().toISOString(),
+            last_login: null,
+            is_active: true
+        };
+
+        //Guardar usuario
+        users.push(newUser);
+
+        //Respuesta
+        return res.status(201).json({
+            status: 'success',
+            code: 'USER_REGISTERED',
+            message: 'User registration successful',
+            user: {
+                id: newUser.id,
+                username: newUser.username,
+                registration_date: newUser.registration_date
+            },
+            next_steps: [
+                'You can now login using your credentials',
+                'Store your password securely as it cannot be recovered'
+            ],
+            postman_testing_tip: 'Save the user ID for future authenticated requests'
+        });
+
+    } catch (error) {
+        console.error('Registration Error:', error);
+        return res.status(500).json({
+            status: 'error',
+            code: 'REGISTRATION_FAILED',
+            message: 'An unexpected error occurred during registration',
+            system_error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            action: 'Please try again or contact support'
+        });
     }
-    // Return error if username or password is missing
-    return res.status(404).json({message: "Unable to register user."});
 });
 
 // Get the book list available in the shop
