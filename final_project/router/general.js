@@ -91,9 +91,12 @@ public_users.get('/',function (req, res) {
             });
         }
         
+        const isbn = req.params.isbn;
+
         const response = {
             status: "success",
             data: {
+                isbn: result.isbn,
                 books: result.books,
                 meta: result.metadata
             },
